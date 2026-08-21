@@ -1,0 +1,16 @@
+[Unit]
+Description=Continuous camera RTSP recorder for dataset collection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gjh
+WorkingDirectory=/home/gjh/weapon-detection-pipeline
+ExecStartPre=/bin/sleep 20
+ExecStart=/usr/bin/python3 /home/gjh/weapon-detection-pipeline/record_cameras.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

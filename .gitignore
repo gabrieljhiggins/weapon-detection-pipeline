@@ -1,0 +1,5 @@
+recordings/
+*.pt
+STOP
+.venv/
+__pycache__/
