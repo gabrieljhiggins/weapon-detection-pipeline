@@ -7,9 +7,9 @@ Wants=network-online.target
 Type=simple
 User=gjh
 WorkingDirectory=/home/gjh/weapon-detection-pipeline
-ExecStartPre=/bin/sleep 20
+ExecStartPre=/bin/sleep 45
 ExecStart=/usr/bin/python3 /home/gjh/weapon-detection-pipeline/record_cameras.py
-Restart=on-failure
+Restart=always
 RestartSec=15
 
 [Install]
