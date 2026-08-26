@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Continuously record RTSP cameras to disk (dataset collection).
-
-Uses ffmpeg stream copy; splits into segments (see cameras.json).
-Stop however you like — last partial segment may be corrupt and can be discarded.
-
-  python3 record_cameras.py
-"""
+"""Continuously record RTSP cameras (video + audio) to disk."""
 
 from __future__ import annotations
 
@@ -42,14 +36,18 @@ def build_cmd(cam: dict, out_dir: Path, segment_seconds: int) -> list[str]:
         "tcp",
         "-fflags",
         "+genpts+discardcorrupt",
-        "-use_wallclock_as_timestamps",
-        "1",
         "-i",
         rtsp,
         "-map",
         "0:v:0",
-        "-c",
+        "-map",
+        "0:a:0",
+        "-c:v",
         "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
         "-f",
         "segment",
         "-segment_time",
@@ -66,7 +64,7 @@ def build_cmd(cam: dict, out_dir: Path, segment_seconds: int) -> list[str]:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Record cameras continuously")
-    p.add_argument("--config", default=str(DEFAULT_CONFIG), help="Path to cameras.json")
+    p.add_argument("--config", default=str(DEFAULT_CONFIG))
     args = p.parse_args()
 
     cfg_path = Path(args.config)
@@ -104,9 +102,9 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop_all)
 
     print(f"Output:  {out_dir.resolve()}")
-    print(f"Segment: {segment}s (~{max(segment // 60, 1)} min) files")
+    print(f"Segment: {segment}s")
     print(f"Cameras: {len(cameras)}")
-    print()
+    print("Audio:   aac 64k (forced)\n")
 
     for cam in cameras:
         name = cam.get("name", "cam")
