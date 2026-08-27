@@ -3,3 +3,10 @@ recordings/
 STOP
 .venv/
 __pycache__/
+frames/
+recordings/
+*.mp4
+*.pt
+.venv/
+__pycache__/
+STOP
