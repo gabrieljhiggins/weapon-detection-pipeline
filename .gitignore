@@ -1,12 +1,10 @@
+data/
 recordings/
-*.pt
-STOP
-.venv/
-__pycache__/
 frames/
-recordings/
-*.mp4
 *.pt
+*.hef
 .venv/
 __pycache__/
+.vscode/
+hailo-apps/
 STOP
