@@ -1,7 +1,6 @@
 data/
 recordings/
 frames/
-*.pt
 *.hef
 .venv/
 __pycache__/

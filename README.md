@@ -64,7 +64,6 @@ Identity uses a **full-body** person Re-ID embedding (Hailo RepVGG-A0 512-d), no
 - `data/recordings`, `data/frames`, Label Studio projects
 - `*.pt`, `*.hef` (too large; listed in [`models/README.md`](models/README.md))
 - `~/hailo-apps` (vendor SDK installed on the Pi)
-- Google Colab: https://drive.google.com/drive/folders/1cRBccHCCE-pXnpMpHOmpousu_coObOzT?usp=sharing
 
 ---
 
