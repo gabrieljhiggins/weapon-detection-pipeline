@@ -1,9 +1,8 @@
 data/
 recordings/
 frames/
-*.hef
 .venv/
 __pycache__/
 .vscode/
 hailo-apps/
-STOP
+STOPhailort.log
