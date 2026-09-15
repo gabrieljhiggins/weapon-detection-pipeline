@@ -1,6 +1,6 @@
 # Models
 
-Trained on the merged three-camera dataset (`train_cam123`) with a 70/20/10 train–validation–test split.
+Trained on the merged three-camera dataset (`train_cam123`) with a 70/20/10 train–validation–test split. [Multi-Camera Weapon Detection Dataset](https://platform.ultralytics.com/gabriel-higgins/datasets/multi-camera-weapon-detection-dataset) published on Ultralytics Platform under Research / Academic Use Only License (Non-commercial research and education only).
 
 **Classes:** `person`, `knife`, `axe`, `pistol`, `assault_rifle`, `shotgun`.
 
@@ -64,7 +64,7 @@ The Pi is not used as a training host.
 
 ### Project archive (Google Drive)
 
-Training artefacts that are too large for GitHub are stored [here](https://drive.google.com/drive/folders/1cRBccHCCE-pXnpMpHOmpousu_coObOzT?usp=sharing).
+Training artefacts are stored [here](https://drive.google.com/drive/folders/1cRBccHCCE-pXnpMpHOmpousu_coObOzT?usp=sharing).
 
 | Item | Size (approx.) | Contents |
 | ---- | -------------: | -------- |
@@ -137,9 +137,11 @@ Measured on the target device with `hailortcli`. `run` uses synthetic frames (no
 
 The output layout `1×8400×10` is consistent with 8400 candidate boxes and 10 values per box (4 box parameters + 6 class scores). NMS is applied on the Pi CPU after this tensor is read from Hailo.
 
+
 ## References
 
 - [Google Drive (dataset, Colab notebook, plots)](https://drive.google.com/drive/folders/1cRBccHCCE-pXnpMpHOmpousu_coObOzT?usp=sharing)
+- [Multi-Camera Weapon Detection Dataset](https://platform.ultralytics.com/gabriel-higgins/datasets/multi-camera-weapon-detection-dataset)
 - [Hailo Model Zoo](https://github.com/hailo-ai/hailo_model_zoo/tree/master/docs)
 - [Hailo-8 / 8L software downloads](https://hailo.ai/developer-zone/software-downloads/?product=ai_accelerators&device=hailo_8_8l)
 - [Ultralytics Hailo integration](https://docs.ultralytics.com/integrations/hailo)

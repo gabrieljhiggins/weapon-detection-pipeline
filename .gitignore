@@ -5,4 +5,5 @@ frames/
 __pycache__/
 .vscode/
 hailo-apps/
-STOPhailort.log
+STOP
+hailort.log
