@@ -38,16 +38,16 @@ Per-class scores below are **mAP50**. Aggregate rows report mAP50 and mAP50–95
 
 ## Hybrid edge–cloud workflow
 
-Training and compilation are conducted on the cloud. While detection, association and alerting are executed on edge devices.
+Training and compilation are conducted on the cloud. Detection runs on the edge device.
 
 | Stage | Where | Why |
 | ----- | ----- | --- |
 | Dataset collection | Raspberry Pi + Reolink cameras | Footage is captured on site, relevant frames are kept for training |
-| Supervised training | Google Colab (T4 GPU) | Fine-tuning YOLO26 needs a more capable GPU then what the Pi offers |
+| Supervised training | Google Colab (T4 GPU) | Fine-tuning YOLO26 needs a more capable GPU than the Pi offers |
 | ONNX → HEF compile | AWS EC2 x86_64 + Hailo DFC 3.34.0 | The Dataflow Compiler is x86_64-only |
-| Live inference | Raspberry Pi 5 + Hailo-8 | Low latency & accurate setup |
+| Live inference | Raspberry Pi 5 + Hailo-8 | Low latency, on-device privacy |
 
-This is the hybrid edge–cloud architecture used in the project: compute intensive, infrequent work (train, quantize, compile) runs in the cloud; continuous inference stays on-device for latency and privacy.
+Compute-intensive, infrequent work (train, quantize, compile) runs in the cloud. Continuous inference stays on-device.
 
 ### Training compute (Google Colab)
 
@@ -82,28 +82,28 @@ After training, `yolo26s_cam123_best.pt` was exported to ONNX and compiled to Ha
 
 ## Hailo-8 compilation
 
-`yolo26s_cam123_best.hef` targets **Hailo-8** (`--hw-arch hailo8`) and was produced with Hailo Dataflow Compiler **3.34.0**.
+`models/yolo26s_cam123_best.hef` targets **Hailo-8** (`--hw-arch hailo8`) and was produced with Hailo Dataflow Compiler **3.34.0** from `yolo26s_cam123_best.pt`.
 
 | Step     | Detail |
 | -------- | ------ |
-| Export   | Ultralytics ONNX export from `yolo26s_cam123_best.pt` |
-| Parse    | DFC ONNX parser. Hailo fused NMS was **not** attached (automatic NMS configuration failed) |
-| Calib    | 400 validation frames resized to 640×640 RGB and stored as `.npy` |
-| Optimize | Quantization at optimization level 0 (CPU-only VM; DFC used a 64-frame subset) |
-| Compile  | Four contexts; compiled artefact ≈ 20 MB |
+| Export   | Ultralytics ONNX export from `yolo26s_cam123_best.pt` (640 input, 6 classes) |
+| Parse    | DFC ONNX parser with Hailo **NMS BY CLASS** attached |
+| Calib    | Validation frames resized to 640×640 RGB |
+| Optimize | Quantization for Hailo-8 |
+| Compile  | Four contexts; artefact ≈ 20 MB |
 
-Box decoding and non-maximum suppression run on the Raspberry Pi CPU after Hailo inference. A later compile on a GPU instance with ≥1024 calibration images could raise quantization quality; it is not required to run the current `.hef`.
+The HEF input is `640×640×3` UINT8 (`input_layer1`, NHWC). The HEF output is `nms1` FLOAT32, **HAILO NMS BY CLASS** (6 classes, max 100 boxes per class). Each kept box is `ymin, xmin, ymax, xmax, score` in letterboxed 640 space. The Pi only maps those boxes back onto the camera frame. There is no raw `1×8400×10` head and no CPU NMS.
 
-### AWS EC2 Procedure
+### AWS EC2 procedure
 
 1. Launch Ubuntu 24.04 x86_64 and connect with the AWS `.pem` key (`ubuntu@<public-ip>`).
 2. Install DFC 3.34.0 in a Python virtual environment from the Hailo Developer Zone package.
 3. If the installer reports missing GPU or Hailo PCIe hardware, set `export HAILO_SKIP_SYSTEM_REQUIREMENTS=1`.
 4. Copy `yolo26s_cam123_best.onnx` and the calibration frames to the VM.
-5. Parse ONNX to `.har`. Decline automatic NMS if the parser prompt would attach a broken post-process.
+5. Parse ONNX to `.har`. Attach Hailo NMS BY CLASS for 6 classes. Do not leave a raw `1×8400×10` output; that layout is not what the live Pi script reads.
 6. Convert JPEG calibration images to 640×640 `.npy` tensors.
 7. Run `hailo optimize` with `--calib-set-path`, then `hailo compiler`.
-8. Save `yolo26s_cam123_best.hef`.
+8. Copy `yolo26s_cam123_best.hef` to `models/` on the Pi.
 9. Stop the EC2 instance.
 
 ```bash
@@ -115,12 +115,13 @@ hailo compiler yolo26s_cam123_optimized.har --hw-arch hailo8
 
 ### Device check (Raspberry Pi 5 + Hailo-8)
 
+Measured on the target device with `hailortcli`. `run` uses synthetic frames (no camera).
+
 ```bash
 hailortcli parse-hef models/yolo26s_cam123_best.hef
 hailortcli run models/yolo26s_cam123_best.hef
+hailortcli fw-control identify
 ```
-
-Measured on the target device with `hailortcli`. `run` uses synthetic frames (no camera).
 
 | Item | Value |
 | ---- | ----- |
@@ -129,14 +130,24 @@ Measured on the target device with `hailortcli`. `run` uses synthetic frames (no
 | Network | `yolo26s_cam123_best` |
 | Contexts | 4 |
 | Input | `input_layer1`, UINT8, NHWC 640×640×3 |
-| Output | `concat23`, UINT8, FCR 1×8400×10 |
-| Frames (`hailortcli run`) | 197 |
-| Throughput | **39.15 FPS** |
-| Send rate | 384.85 Mbit/s |
-| Receive rate | 42.09 Mbit/s |
+| Output | `nms1`, FLOAT32, HAILO NMS BY CLASS (6 classes, max 100 boxes/class, max frame size 12024) |
+| Frames (`hailortcli run`) | 190 |
+| Throughput | **37.76 FPS** |
+| Send rate | 371.18 Mbit/s |
+| Receive rate | 1.71 Mbit/s |
+| Live script | `detect/detect_hailo_cam1.py` |
+| Live rate (RTSP + overlay + JPEG save) | ~10 FPS |
 
-The output layout `1×8400×10` is consistent with 8400 candidate boxes and 10 values per box (4 box parameters + 6 class scores). NMS is applied on the Pi CPU after this tensor is read from Hailo.
+Class ids from the NMS list:
 
+| id | Name |
+| -- | ---- |
+| 0 | person |
+| 1 | knife |
+| 2 | axe |
+| 3 | pistol |
+| 4 | assault_rifle |
+| 5 | shotgun |
 
 ## References
 
