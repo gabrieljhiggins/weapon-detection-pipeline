@@ -25,5 +25,3 @@ Ctrl+C to stop.
 Use the **sub** stream for live tests. The main stream overloads the Pi and drops H264 slices.
 
 NMS layout from Hailo is `[batch][class][boxes]`. The script unwraps the batch dim, then reads six class lists.
-
-This folder is not the old CPU `detect_and_record.py` prototype.

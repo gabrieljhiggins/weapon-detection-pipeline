@@ -1,9 +1,12 @@
-data/
-recordings/
-frames/
 .venv/
 __pycache__/
 .vscode/
-hailo-apps/
+*.pt
+*.hef
+data/recordings/
+data/events/
+data/alerts/
+data/frames/
+data/logs/
 STOP
-hailort.log
+config/cameras.json

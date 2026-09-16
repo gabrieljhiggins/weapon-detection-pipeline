@@ -157,3 +157,4 @@ Class ids from the NMS list:
 - [Hailo-8 / 8L software downloads](https://hailo.ai/developer-zone/software-downloads/?product=ai_accelerators&device=hailo_8_8l)
 - [Ultralytics Hailo integration](https://docs.ultralytics.com/integrations/hailo)
 - [Hailo Dataflow Compiler v3.34.0](https://hailo.ai/developer-zone/documentation/dataflow-compiler-v3-34-0/?sp_referrer=install/install.html)
+- [AWS EC2](https://docs.aws.amazon.com/ec2/)
