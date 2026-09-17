@@ -46,6 +46,23 @@ class Bank:
         while q and now - q[0][0] > KEEP_S:
             q.popleft()
 
+    def _one_cam(self, rows, hold=0.45):
+        """Keep one camera until it goes silent so two-view overlap does not flicker."""
+        rows = sorted(rows, key=lambda x: x[0])
+        out = []
+        last_cam = None
+        last_seen = {}
+        for t, cam, blob in rows:
+            last_seen[cam] = t
+            if last_cam is None or cam == last_cam:
+                last_cam = cam
+                out.append((t, cam, blob))
+                continue
+            if t - last_seen.get(last_cam, t) >= hold:
+                last_cam = cam
+                out.append((t, cam, blob))
+        return out
+
     def absorb(self, src, dst):
         if src is None or dst is None or src == dst:
             return
@@ -55,8 +72,7 @@ class Bank:
         self.by_id.pop(src, None)
 
     def encode(self, tid) -> Path | None:
-        rows = list(self.by_id.get(tid, []))
-        rows.sort(key=lambda x: x[0])
+        rows = self._one_cam(list(self.by_id.get(tid, [])))
         if not rows:
             return None
         EVENT_ROOT.mkdir(parents=True, exist_ok=True)

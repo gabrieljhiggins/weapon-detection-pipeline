@@ -15,7 +15,7 @@ CAMERAS_JSON = REPO / "config" / "cameras.json"
 FRAME_ROOT = REPO / "data" / "frames"
 ALERT_ROOT = REPO / "data" / "alerts"
 
-PERSON_CONF = 0.55
+PERSON_CONF = 0.85
 WEAPON_CONF = 0.20
 CLASSES = ["person", "knife", "axe", "pistol", "assault_rifle", "shotgun"]
 WEAPON_NAMES = {"knife", "axe", "pistol", "assault_rifle", "shotgun"}

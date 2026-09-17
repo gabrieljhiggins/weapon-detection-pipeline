@@ -6,6 +6,8 @@ from __future__ import annotations
 import sys
 import threading
 import time
+from collections import defaultdict, deque
+from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
 
@@ -33,8 +35,10 @@ import record_all
 import reid
 import track
 
-ARM_FRAMES = 5
+ARM_WINDOW = 48
+ARM_NEED = 30
 IDLE_S = 8.0
+LOOSE_GAP = 2.0
 
 
 def grabber(name, rtsp, q, stop, live):
@@ -122,7 +126,8 @@ def main():
     history = backtrack.Backtrack(seconds=3600, gap=3.0)
     suspect = None
     last_seen = 0.0
-    arm_hits = {}
+    arm_hist = defaultdict(lambda: deque(maxlen=ARM_WINDOW))
+    last_loose = {}
     wrote = False
 
     vd_params = VDevice.create_params()
@@ -157,15 +162,35 @@ def main():
                             item["person"]["armed"] = True
                             tid = item["person"].get("track_id")
                             armed_ids.add(tid)
-                            arm_hits[tid] = arm_hits.get(tid, 0) + 1
+                            if tid is not None:
+                                arm_hist[tid].append(True)
                             history.add(name, tid, item["person"]["box"], True, "weapon")
                         for p in assoc["idle"]:
                             tid = p.get("track_id")
-                            if tid not in armed_ids:
-                                arm_hits[tid] = 0
+                            if tid is not None:
+                                arm_hist[tid].append(False)
                             history.add(name, tid, p["box"], False, None)
 
-                        vis = common.draw(frame, people, weapons, cam=name)
+                        if assoc["loose"]:
+                            now = time.time()
+                            if now - last_loose.get(name, 0) >= LOOSE_GAP:
+                                last_loose[name] = now
+                                loose_dir = common.ALERT_ROOT / "unassigned"
+                                loose_dir.mkdir(parents=True, exist_ok=True)
+                                snap = common.draw(frame, people, assoc["loose"])
+                                snap_path = loose_dir / (
+                                    "%s_%s_weapon.jpg"
+                                    % (name, datetime.now().strftime("%Y%m%d_%H%M%S_%f"))
+                                )
+                                cv2.imwrite(str(snap_path), snap)
+                                print("Unassigned weapon: %s" % snap_path)
+
+                        if suspect is not None:
+                            for p in people:
+                                if p.get("track_id") == suspect:
+                                    p["armed"] = True
+
+                        vis = common.draw(frame, people, weapons)
                         for p in people:
                             bank.add(p.get("track_id"), name, vis)
                             if suspect is not None and p.get("track_id") == suspect:
@@ -174,15 +199,16 @@ def main():
                         if suspect is None:
                             for item in assoc["armed"]:
                                 tid = item["person"].get("track_id")
-                                if tid is None or arm_hits.get(tid, 0) < ARM_FRAMES:
+                                hist = arm_hist.get(tid, ())
+                                if tid is None or sum(hist) < ARM_NEED:
                                     continue
                                 suspect = tid
                                 gallery.mark_attacker(tid, item["person"].get("embedding"))
                                 last_seen = time.time()
                                 wrote = False
                                 print(
-                                    "Alert: %s (weapon detected - tracking suspect id=%s)"
-                                    % (name, suspect)
+                                    "Alert: %s (person armed %d/%d - tracking suspect id=%s)"
+                                    % (name, sum(hist), ARM_WINDOW, suspect)
                                 )
                                 break
 
@@ -197,7 +223,7 @@ def main():
                         gallery.clear_attacker()
                         suspect = None
                         last_seen = 0.0
-                        arm_hits.clear()
+                        arm_hist.clear()
                     if not got_any:
                         time.sleep(0.02)
             except KeyboardInterrupt:
