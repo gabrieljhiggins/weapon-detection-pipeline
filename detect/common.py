@@ -16,7 +16,7 @@ FRAME_ROOT = REPO / "data" / "frames"
 ALERT_ROOT = REPO / "data" / "alerts"
 
 PERSON_CONF = 0.55
-WEAPON_CONF = 0.45
+WEAPON_CONF = 0.20
 CLASSES = ["person", "knife", "axe", "pistol", "assault_rifle", "shotgun"]
 WEAPON_NAMES = {"knife", "axe", "pistol", "assault_rifle", "shotgun"}
 
@@ -96,34 +96,33 @@ def detections(hailo_out, scale, left, top, fw, fh):
     return people, weapons
 
 
-def draw(frame, people, weapons):
+def draw(frame, people, weapons, cam=None):
     vis = frame.copy()
     for p in people:
-        x1, y1, x2, y2 = p["box"]
-        tid = p.get("track_id", "?")
+        x1, y1, x2, y2 = [int(v) for v in p["box"]]
         armed = p.get("armed")
         color = (0, 0, 255) if armed else (0, 255, 0)
-        tag = "ARMED" if armed else "person"
+        tag = "person armed" if armed else "person"
         cv2.rectangle(vis, (x1, y1), (x2, y2), color, 2)
         cv2.putText(
             vis,
-            f"id{tid} {tag} {p['score']:.2f}",
+            "%s %.2f" % (tag, p["score"]),
             (x1, max(20, y1 - 6)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
             color,
             2,
         )
-    for w in weapons:
-        x1, y1, x2, y2 = w["box"]
-        cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 140, 255), 2)
+    for wpn in weapons:
+        x1, y1, x2, y2 = [int(v) for v in wpn["box"]]
+        cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 0, 255), 2)
         cv2.putText(
             vis,
-            f"weapon {w['score']:.2f}",
+            "weapon %.2f" % wpn["score"],
             (x1, max(20, y1 - 6)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
-            (0, 140, 255),
+            (0, 0, 255),
             2,
         )
     return vis

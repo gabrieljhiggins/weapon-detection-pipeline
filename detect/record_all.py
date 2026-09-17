@@ -1,4 +1,4 @@
-"""Always-on RTSP recorders. 30s segments under data/recordings/<cam>/."""
+"""Always-on RTSP archive. MPEG-TS segments so in-progress files stay readable."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def start(cams: list[dict]) -> list[subprocess.Popen]:
     for cam in cams:
         d = REC_ROOT / cam["name"]
         d.mkdir(parents=True, exist_ok=True)
-        out = str(d / (cam["name"] + "_%Y%m%d_%H%M%S.mp4"))
+        out = str(d / (cam["name"] + "_%Y%m%d_%H%M%S.ts"))
         cmd = [
             "ffmpeg",
             "-hide_banner",
@@ -32,10 +32,10 @@ def start(cams: list[dict]) -> list[subprocess.Popen]:
             "copy",
             "-f",
             "segment",
+            "-segment_format",
+            "mpegts",
             "-segment_time",
-            "30",
-            "-reset_timestamps",
-            "1",
+            "15",
             "-strftime",
             "1",
             out,

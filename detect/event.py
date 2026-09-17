@@ -1,7 +1,8 @@
-"""Annotated frames per person id. One suspect clip, boxes included."""
+"""Annotated frames per person id. One suspect clip with boxes + a JSON proof log."""
 
 from __future__ import annotations
 
+import json
 import subprocess
 from collections import defaultdict, deque
 from datetime import datetime
@@ -76,31 +77,14 @@ class Bank:
         if stdin is None:
             proc.kill()
             return None
-        last_cam = None
         n = 0
         try:
-            for _, cam, blob in rows:
+            for _, _cam, blob in rows:
                 frame = cv2.imdecode(np.frombuffer(blob, dtype=np.uint8), cv2.IMREAD_COLOR)
                 if frame is None:
                     continue
-                frame = _resize(frame)
-                if last_cam is not None and cam != last_cam:
-                    hold = np.zeros((H, W, 3), dtype=np.uint8)
-                    cv2.putText(
-                        hold,
-                        "%s -> %s" % (last_cam, cam),
-                        (24, H // 2),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1.0,
-                        (0, 255, 255),
-                        2,
-                    )
-                    for _ in range(4):
-                        stdin.write(hold.tobytes())
-                        n += 1
-                stdin.write(frame.tobytes())
+                stdin.write(_resize(frame).tobytes())
                 n += 1
-                last_cam = cam
         finally:
             stdin.close()
             proc.wait(timeout=30)
@@ -110,3 +94,23 @@ class Bank:
             return None
         tmp.rename(path)
         return path
+
+
+def write_log(tid, spans, clip: Path | None) -> Path | None:
+    EVENT_ROOT.mkdir(parents=True, exist_ok=True)
+    tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = EVENT_ROOT / ("event_%s_id%s.json" % (tag, tid))
+    rows = []
+    for s in sorted(spans, key=lambda x: x["t0"]):
+        rows.append({
+            "cam": s["cam"],
+            "t0": s["t0"].strftime("%H:%M:%S"),
+            "t1": s["t1"].strftime("%H:%M:%S"),
+            "armed": bool(s.get("armed")),
+        })
+    path.write_text(json.dumps({
+        "id": tid,
+        "clip": str(clip) if clip else None,
+        "spans": rows,
+    }, indent=2))
+    return path

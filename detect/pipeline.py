@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Record all cameras. One event clip = suspect only, all views, in time order."""
+"""Record all cameras. One boxed event clip = suspect only, all views, in time order."""
 
 from __future__ import annotations
 
 import sys
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
 
@@ -29,10 +28,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import associate
 import backtrack
 import common
+import event
 import record_all
 import reid
-import stitch
 import track
+
+ARM_FRAMES = 5
+IDLE_S = 8.0
 
 
 def grabber(name, rtsp, q, stop, live):
@@ -84,19 +86,22 @@ def open_net(target, hef_path):
     return ng, in_name, in_params, out_params
 
 
-def finish(tid, history):
-    tag = datetime.now().strftime("%Y%m%d_%H%M%S")
-    spans = history.spans.get(tid, [])
-    path = stitch.stitch(tid, spans, tag)
+def finish(tid, history, bank):
+    path = bank.encode(tid)
     if path:
         print("Event clip: %s" % path)
     else:
-        print("Event clip: failed (no overlapping recordings)")
+        print("Event clip: no frames for id=%s" % tid)
+    spans = history.dump("", tid)
+    log = event.write_log(tid, spans or [], path)
+    if log:
+        print("Event log: %s" % log)
 
 
 def main():
     cams = common.load_cameras()
     recs = record_all.start(cams)
+    bank = event.Bank()
 
     stop = threading.Event()
     queues = {c["name"]: Queue(maxsize=1) for c in cams}
@@ -117,6 +122,8 @@ def main():
     history = backtrack.Backtrack(seconds=3600, gap=3.0)
     suspect = None
     last_seen = 0.0
+    arm_hits = {}
+    wrote = False
 
     vd_params = VDevice.create_params()
     vd_params.scheduling_algorithm = HailoSchedulingAlgorithm.ROUND_ROBIN
@@ -126,7 +133,7 @@ def main():
         with InferVStreams(det_ng, det_ip, det_op) as det_infer, InferVStreams(
             reid_ng, reid_ip, reid_op
         ) as reid_infer:
-            gallery = reid.ReID(reid_infer.infer, reid_in, match_thr=0.45)
+            gallery = reid.ReID(reid_infer.infer, reid_in)
             try:
                 while True:
                     got_any = False
@@ -143,44 +150,65 @@ def main():
                         fh, fw = frame.shape[:2]
                         people, weapons = common.detections(raw, scale, left, top, fw, fh)
                         people = trackers.update(name, people)
-                        people = gallery.assign(frame, people)
+                        people = gallery.assign(frame, people, cam=name)
                         assoc = associate.run(people, weapons)
+                        armed_ids = set()
                         for item in assoc["armed"]:
-                            gallery.mark_attacker(item["person"].get("track_id"))
-                            history.add(
-                                name,
-                                item["person"].get("track_id"),
-                                item["person"]["box"],
-                                True,
-                                "weapon",
-                            )
+                            item["person"]["armed"] = True
+                            tid = item["person"].get("track_id")
+                            armed_ids.add(tid)
+                            arm_hits[tid] = arm_hits.get(tid, 0) + 1
+                            history.add(name, tid, item["person"]["box"], True, "weapon")
                         for p in assoc["idle"]:
-                            history.add(name, p.get("track_id"), p["box"], False, None)
-                        if assoc["armed"] and suspect is None:
-                            suspect = assoc["armed"][0]["person"].get("track_id")
-                            print(
-                                "Alert: %s (weapon detected - tracking suspect)"
-                                % name
-                            )
-                        if suspect is not None:
-                            for p in people:
-                                if p.get("track_id") == suspect:
-                                    last_seen = time.time()
-                            if last_seen and time.time() - last_seen > 8:
-                                finish(suspect, history)
-                                suspect = None
-                                last_seen = 0.0
+                            tid = p.get("track_id")
+                            if tid not in armed_ids:
+                                arm_hits[tid] = 0
+                            history.add(name, tid, p["box"], False, None)
+
+                        vis = common.draw(frame, people, weapons, cam=name)
+                        for p in people:
+                            bank.add(p.get("track_id"), name, vis)
+                            if suspect is not None and p.get("track_id") == suspect:
+                                last_seen = time.time()
+
+                        if suspect is None:
+                            for item in assoc["armed"]:
+                                tid = item["person"].get("track_id")
+                                if tid is None or arm_hits.get(tid, 0) < ARM_FRAMES:
+                                    continue
+                                suspect = tid
+                                gallery.mark_attacker(tid, item["person"].get("embedding"))
+                                last_seen = time.time()
+                                wrote = False
+                                print(
+                                    "Alert: %s (weapon detected - tracking suspect id=%s)"
+                                    % (name, suspect)
+                                )
+                                break
+
+                    if (
+                        suspect is not None
+                        and not wrote
+                        and last_seen
+                        and time.time() - last_seen > IDLE_S
+                    ):
+                        finish(suspect, history, bank)
+                        wrote = True
+                        gallery.clear_attacker()
+                        suspect = None
+                        last_seen = 0.0
+                        arm_hits.clear()
                     if not got_any:
                         time.sleep(0.02)
             except KeyboardInterrupt:
                 print("\nStopped")
             finally:
                 stop.set()
-                if suspect is not None:
-                    finish(suspect, history)
+                if suspect is not None and not wrote:
+                    finish(suspect, history, bank)
                 record_all.stop(recs)
 
-    print("Raw recordings in data/recordings/ — delete after you copy the event clip")
+    print("Raw archive in data/recordings/ — demo clip is data/events/")
 
 
 if __name__ == "__main__":
