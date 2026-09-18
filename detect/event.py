@@ -46,19 +46,25 @@ class Bank:
         while q and now - q[0][0] > KEEP_S:
             q.popleft()
 
-    def _one_cam(self, rows, hold=0.45):
-        """Keep one camera until it goes silent so two-view overlap does not flicker."""
+    def _one_cam(self, rows, hold=0.25, streak=5):
+        """Stay on one camera until it goes quiet, or the other view takes over."""
         rows = sorted(rows, key=lambda x: x[0])
         out = []
         last_cam = None
         last_seen = {}
+        run_cam, run_n = None, 0
         for t, cam, blob in rows:
             last_seen[cam] = t
+            if cam == run_cam:
+                run_n += 1
+            else:
+                run_cam, run_n = cam, 1
             if last_cam is None or cam == last_cam:
                 last_cam = cam
                 out.append((t, cam, blob))
                 continue
-            if t - last_seen.get(last_cam, t) >= hold:
+            silent = t - last_seen.get(last_cam, t) >= hold
+            if silent or run_n >= streak:
                 last_cam = cam
                 out.append((t, cam, blob))
         return out

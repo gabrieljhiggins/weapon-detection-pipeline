@@ -43,6 +43,14 @@ class Backtrack:
             else:
                 del self.spans[tid]
 
+    def absorb(self, src, dst):
+        if src is None or dst is None or src == dst:
+            return
+        merged = list(self.spans.get(dst, [])) + list(self.spans.get(src, []))
+        merged.sort(key=lambda s: s["t0"])
+        self.spans[dst] = merged
+        self.spans.pop(src, None)
+
     def dump(self, cam: str, track_id):
         rows = sorted(self.spans.get(track_id, []), key=lambda s: s["t0"])
         if not rows:

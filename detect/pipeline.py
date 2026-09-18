@@ -36,8 +36,8 @@ import reid
 import track
 
 ARM_WINDOW = 48
-ARM_NEED = 30
-IDLE_S = 8.0
+ARM_NEED = 20
+IDLE_S = 20.0
 LOOSE_GAP = 2.0
 
 
@@ -155,7 +155,20 @@ def main():
                         fh, fw = frame.shape[:2]
                         people, weapons = common.detections(raw, scale, left, top, fw, fh)
                         people = trackers.update(name, people)
-                        people = gallery.assign(frame, people, cam=name)
+                        people, remaps = gallery.assign(frame, people, cam=name)
+                        for src, dst in remaps:
+                            bank.absorb(src, dst)
+                            history.absorb(src, dst)
+                            if src in arm_hist:
+                                arm_hist[dst].extend(arm_hist.pop(src))
+                        if suspect is not None and len(people) == 1:
+                            tid = people[0].get("track_id")
+                            if tid is not None and tid != suspect:
+                                bank.absorb(tid, suspect)
+                                history.absorb(tid, suspect)
+                                if tid in arm_hist:
+                                    arm_hist[suspect].extend(arm_hist.pop(tid))
+                                people[0]["track_id"] = suspect
                         assoc = associate.run(people, weapons)
                         armed_ids = set()
                         for item in assoc["armed"]:
@@ -183,7 +196,6 @@ def main():
                                     % (name, datetime.now().strftime("%Y%m%d_%H%M%S_%f"))
                                 )
                                 cv2.imwrite(str(snap_path), snap)
-                                print("Unassigned weapon: %s" % snap_path)
 
                         if suspect is not None:
                             for p in people:

@@ -1,4 +1,9 @@
-"""Link each weapon box to one person box."""
+"""Link each weapon box to one person box.
+
+Long guns (shotgun / rifle) often sit beside the body: the weapon centre is
+outside the person box and IoU is tiny. Match by padded containment, any
+real overlap, then proximity vs person height.
+"""
 
 
 def centre(box):
@@ -10,6 +15,13 @@ def contains(person_box, pt):
     x1, y1, x2, y2 = person_box
     px, py = pt
     return x1 <= px <= x2 and y1 <= py <= y2
+
+
+def inflate(box, frac):
+    x1, y1, x2, y2 = box
+    h = max(1.0, y2 - y1)
+    p = h * frac
+    return (x1 - p, y1 - 0.15 * p, x2 + p, y2 + 0.15 * p)
 
 
 def iou(a, b):
@@ -25,32 +37,58 @@ def iou(a, b):
     return inter / (area_a + area_b - inter + 1e-9)
 
 
+def dist_to_box(pt, box):
+    px, py = pt
+    x1, y1, x2, y2 = box
+    cx = min(max(px, x1), x2)
+    cy = min(max(py, y1), y2)
+    dx, dy = px - cx, py - cy
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def area(box):
+    x1, y1, x2, y2 = box
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
+
+def owner_for(weapon, people):
+    wc = centre(weapon["box"])
+    w_area = area(weapon["box"])
+    best_i, best = None, None
+    for i, p in enumerate(people):
+        pb = p["box"]
+        ph = max(1.0, pb[3] - pb[1])
+        if w_area > 3.0 * max(area(pb), 1.0):
+            continue
+        d = dist_to_box(wc, pb)
+        if contains(inflate(pb, 0.40), wc):
+            key = (0, d)
+        elif iou(pb, weapon["box"]) > 0.02:
+            key = (1, d)
+        elif d < 0.50 * ph:
+            key = (2, d)
+        else:
+            continue
+        if best is None or key < best:
+            best, best_i = key, i
+    return best_i
+
+
 def run(people, weapons):
     armed = []
     loose = []
     used = set()
     for w in weapons:
-        owner = None
-        for i, p in enumerate(people):
-            if contains(p["box"], centre(w["box"])):
-                owner = i
-                break
-        if owner is None:
-            best_i, best = None, 0.15
-            for i, p in enumerate(people):
-                v = iou(p["box"], w["box"])
-                if v > best:
-                    best, best_i = v, i
-            owner = best_i
+        owner = owner_for(w, people)
         if owner is None:
             loose.append(w)
-        else:
-            used.add(owner)
-            person = people[owner]
-            armed.append({
-                "person": person,
-                "weapon": w,
-                "track_id": person.get("track_id"),
-            })
+            continue
+        used.add(owner)
+        person = people[owner]
+        armed.append({
+            "person": person,
+            "weapon": w,
+            "track_id": person.get("track_id"),
+        })
     idle = [p for i, p in enumerate(people) if i not in used]
     return {"armed": armed, "loose": loose, "idle": idle}

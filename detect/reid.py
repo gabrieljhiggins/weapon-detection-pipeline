@@ -30,7 +30,14 @@ def cosine(a, b):
 
 
 class ReID:
-    def __init__(self, infer_fn, in_name: str, match_thr: float = 0.40, suspect_thr: float = 0.22, hold_s: float = 8.0):
+    def __init__(
+        self,
+        infer_fn,
+        in_name: str,
+        match_thr: float = 0.32,
+        suspect_thr: float = 0.10,
+        hold_s: float = 90.0,
+    ):
         self.infer_fn = infer_fn
         self.in_name = in_name
         self.match_thr = match_thr
@@ -53,19 +60,22 @@ class ReID:
         return l2norm(raw)
 
     def assign(self, frame, people, cam=None):
+        remaps = []
         now = time.time()
         n = len(people)
         recent = self.attacker_id is not None and (now - self.last_t) <= self.hold_s
         hop = cam is not None and cam != self.last_cam
+
         for p in people:
             emb = self.embed(frame, p["box"])
             p["embedding"] = emb
             gid = None
-            if self.attacker_id is not None and self.frozen is not None and emb is not None:
+            if recent and n == 1:
+                gid = self.attacker_id
+            elif self.attacker_id is not None and self.frozen is not None and emb is not None:
                 s = cosine(emb, self.frozen)
-                if s >= self.suspect_thr:
-                    gid = self.attacker_id
-                elif recent and hop and n == 1 and s >= self.suspect_thr - 0.06:
+                floor = self.suspect_thr - 0.05 if (recent and hop and n <= 2) else self.suspect_thr
+                if s >= floor:
                     gid = self.attacker_id
             if gid is None and emb is not None:
                 best_id, best = None, self.match_thr
@@ -76,19 +86,48 @@ class ReID:
                     if score > best:
                         best, best_id = score, existing
                 gid = best_id
-            if gid is None and recent and hop and n == 1:
-                gid = self.attacker_id
             if gid is None:
                 gid = self.next_id
                 self.next_id += 1
             if emb is not None and gid != self.attacker_id:
                 self.gallery[gid] = emb
+            old = p.get("track_id")
             p["track_id"] = gid
+            if old is not None and old != gid:
+                remaps.append((old, gid))
             if gid == self.attacker_id:
                 self.last_t = now
                 if cam is not None:
                     self.last_cam = cam
-        return people
+
+        if self.attacker_id is not None and recent:
+            have = any(p.get("track_id") == self.attacker_id for p in people)
+            if not have and people:
+                best_p, best_s = None, -1.0
+                for p in people:
+                    emb = p.get("embedding")
+                    if emb is None or self.frozen is None:
+                        continue
+                    s = cosine(emb, self.frozen)
+                    if s > best_s:
+                        best_s, best_p = s, p
+                take = None
+                if n == 1:
+                    take = people[0]
+                elif hop and n <= 2 and best_p is not None and best_s >= 0.06:
+                    take = best_p
+                elif best_p is not None and best_s >= 0.10:
+                    take = best_p
+                if take is not None:
+                    old = take.get("track_id")
+                    take["track_id"] = self.attacker_id
+                    if old is not None and old != self.attacker_id:
+                        remaps.append((old, self.attacker_id))
+                    self.last_t = now
+                    if cam is not None:
+                        self.last_cam = cam
+
+        return people, remaps
 
     def mark_attacker(self, gid, emb=None):
         if gid is None:
