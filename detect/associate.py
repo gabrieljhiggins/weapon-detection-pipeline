@@ -1,4 +1,4 @@
-"""Link each weapon box to one person box.
+"""Weapon-person assocaition logic. Match weapons to people by proximity and containment.
 
 Long guns (shotgun / rifle) often sit beside the body: the weapon centre is
 outside the person box and IoU is tiny. Match by padded containment, any

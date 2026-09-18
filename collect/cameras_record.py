@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Continuously record RTSP cameras (video + audio) to disk."""
+"""Continuously record RTSP cameras (video + audio) to disk.
+
+This code is provided for reference only and documents the camera recording process. 
+The footage would later be used for model training and evaluation. 
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Clean stop for headless recording (no keyboard needed)
+# Clean stop for headless recording
 STOP_FILE="$HOME/weapon-detection-pipeline/STOP"
 SERVICE="record-cameras.service"
 

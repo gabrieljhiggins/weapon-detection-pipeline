@@ -1,4 +1,4 @@
-"""Per-camera IoU tracker for person boxes."""
+"""Per-camera tracker for person boxes."""
 
 from __future__ import annotations
 

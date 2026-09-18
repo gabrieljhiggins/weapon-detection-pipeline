@@ -10,3 +10,5 @@ data/frames/
 data/logs/
 STOP
 config/cameras.json
+hailort.log
+pyhailort.log

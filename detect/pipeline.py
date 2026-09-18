@@ -41,7 +41,7 @@ IDLE_S = 20.0
 LOOSE_GAP = 2.0
 
 
-def grabber(name, rtsp, q, stop, live):
+def grabber(name, rtsp, q, stop, live, recs):
     cap = None
     fails = 0
     while not stop.is_set():
@@ -66,6 +66,7 @@ def grabber(name, rtsp, q, stop, live):
             continue
         fails = 0
         live[name] = True
+        record_all.attach(recs, name, frame)
         try:
             while q.qsize() > 0:
                 q.get_nowait()
@@ -90,20 +91,25 @@ def open_net(target, hef_path):
     return ng, in_name, in_params, out_params
 
 
+def cam_label(name):
+    s = str(name).strip()
+    low = s.lower()
+    if low.startswith("cam") and low[3:].isdigit():
+        return "Camera %s" % low[3:]
+    if low.startswith("camera") and low[6:].strip().isdigit():
+        return "Camera %s" % low[6:].strip()
+    return s
+
+
 def finish(tid, history, bank):
     path = bank.encode(tid)
-    if path:
-        print("Event clip: %s" % path)
-    else:
-        print("Event clip: no frames for id=%s" % tid)
     spans = history.dump("", tid)
-    log = event.write_log(tid, spans or [], path)
-    if log:
-        print("Event log: %s" % log)
+    event.write_log(tid, spans or [], path)
 
 
 def main():
     cams = common.load_cameras()
+    print("Starting weapon detection pipeline...")
     recs = record_all.start(cams)
     bank = event.Bank()
 
@@ -113,14 +119,25 @@ def main():
     for cam in cams:
         threading.Thread(
             target=grabber,
-            args=(cam["name"], cam["rtsp"], queues[cam["name"]], stop, live),
+            args=(cam["name"], cam["rtsp"], queues[cam["name"]], stop, live, recs),
             daemon=True,
         ).start()
 
+    print("Waiting for cameras...")
     t0 = time.time()
+    shown = set()
     while time.time() - t0 < 20 and not all(live.values()):
+        for c in cams:
+            if live[c["name"]] and c["name"] not in shown:
+                print("  %s - LIVE" % cam_label(c["name"]))
+                shown.add(c["name"])
         time.sleep(0.2)
-    print("Cams live: " + " ".join(c["name"] for c in cams if live[c["name"]]))
+    for c in cams:
+        if live[c["name"]] and c["name"] not in shown:
+            print("  %s - LIVE" % cam_label(c["name"]))
+    down = [cam_label(c["name"]) for c in cams if not live[c["name"]]]
+    if down:
+        print("Not live: " + " ".join(down))
 
     trackers = track.Trackers()
     history = backtrack.Backtrack(seconds=3600, gap=3.0)
@@ -219,8 +236,8 @@ def main():
                                 last_seen = time.time()
                                 wrote = False
                                 print(
-                                    "Alert: %s (person armed %d/%d - tracking suspect id=%s)"
-                                    % (name, sum(hist), ARM_WINDOW, suspect)
+                                    "Alert: %s (person armed - tracking suspect ID %s)"
+                                    % (cam_label(name), suspect)
                                 )
                                 break
 
@@ -246,7 +263,8 @@ def main():
                     finish(suspect, history, bank)
                 record_all.stop(recs)
 
-    print("Raw archive in data/recordings/ — demo clip is data/events/")
+    print("All-camera archive: data/recordings")
+    print("Event reconstruction: data/events")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Annotated frames per person id. One suspect clip with boxes + a JSON proof log."""
+"""Annotated frames per person id. One suspect clip with boxes + a JSON log."""
 
 from __future__ import annotations
 
@@ -133,6 +133,7 @@ def write_log(tid, spans, clip: Path | None) -> Path | None:
     path.write_text(json.dumps({
         "id": tid,
         "clip": str(clip) if clip else None,
+        "archive": "/home/gjh/weapon-detection-pipeline/data/recordings",
         "spans": rows,
     }, indent=2))
     return path

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Extract frames from stitched *_full.mp4 videos.
 
-  python3 extract_frames.py
+This code is provided for reference only and documents the frame extraction process.
+The extracted frames would subsequently be used for model training and evaluation.
 """
 
 from __future__ import annotations

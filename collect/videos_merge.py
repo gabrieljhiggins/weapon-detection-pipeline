@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Join all clips from one camera folder into one long MP4.
 
-Uses ffmpeg concat + stream copy (no re-encode).
-
-  python3 stitch_camera.py cam1
-  python3 stitch_camera.py cam2 --out /home/gjh/cam2_full.mp4
-  python3 stitch_camera.py --all
+Cameras record in short clips to avoid losing footage if a clip is corrupted, primarily  due to manual stopping of the recording process. 
+This code stitches all clips from one camera into one long MP4 for frame extraction.
+This code is provided for reference only and documents the video merging process.
+The full videos would subsequently be used for frame extraction, model training and evaluation.
 """
 
 from __future__ import annotations

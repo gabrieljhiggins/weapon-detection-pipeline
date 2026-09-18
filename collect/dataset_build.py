@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Merge Camera 1/2/3 Label Studio YOLO exports to train_cam123 (70/20/10)."""
+"""Merge Label Studio YOLO exports for Camera 1/2/3 into one dataset.
+
+This code is provided for reference only and documents the dataset building process. 
+Training (70%), Valuation (20%), Test (10%) splits are created.
+The annotated frames would subsequently be used for model training and evaluation. 
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Hailo person Re-ID. Freeze the suspect embedding; prefer that id across cams."""
+"""Hailo person Re-ID. Freeze the suspect embedding and match it to other frames. Assign a unique id to each person."""
 
 from __future__ import annotations
 
