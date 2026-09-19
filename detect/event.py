@@ -1,4 +1,4 @@
-"""Annotated frames per person id. One suspect clip with boxes + a JSON log."""
+"""Annotated frames per person id. One suspect MP4 and a JSON timeline."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ class Bank:
         self.last = {}
 
     def add(self, tid, cam, vis):
+        """Add a frame for a given track id and camera."""
         if tid is None:
             return
         now = datetime.now().timestamp()
@@ -70,6 +71,7 @@ class Bank:
         return out
 
     def absorb(self, src, dst):
+        """Merge frame history when two ids become one."""
         if src is None or dst is None or src == dst:
             return
         merged = list(self.by_id.get(dst, [])) + list(self.by_id.get(src, []))
@@ -78,6 +80,7 @@ class Bank:
         self.by_id.pop(src, None)
 
     def encode(self, tid) -> Path | None:
+        """Write event.mp4 from the buffered frames."""
         rows = self._one_cam(list(self.by_id.get(tid, [])))
         if not rows:
             return None
@@ -119,6 +122,7 @@ class Bank:
 
 
 def write_log(tid, spans, clip: Path | None) -> Path | None:
+    """Write a JSON log of the event timeline for a given track id."""
     EVENT_ROOT.mkdir(parents=True, exist_ok=True)
     tag = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = EVENT_ROOT / ("event_%s_id%s.json" % (tag, tid))

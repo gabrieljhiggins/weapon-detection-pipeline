@@ -7,17 +7,20 @@ real overlap, then proximity vs person height.
 
 
 def centre(box):
+    """Return the centre point of a box."""
     x1, y1, x2, y2 = box
     return (x1 + x2) * 0.5, (y1 + y2) * 0.5
 
 
 def contains(person_box, pt):
+    """Return True if the point is inside the person box."""
     x1, y1, x2, y2 = person_box
     px, py = pt
     return x1 <= px <= x2 and y1 <= py <= y2
 
 
 def inflate(box, frac):
+    """Return a box inflated by a fraction of its height."""
     x1, y1, x2, y2 = box
     h = max(1.0, y2 - y1)
     p = h * frac
@@ -25,6 +28,7 @@ def inflate(box, frac):
 
 
 def iou(a, b):
+    """Return the intersection-over-union of two boxes."""
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
@@ -38,6 +42,7 @@ def iou(a, b):
 
 
 def dist_to_box(pt, box):
+    """Return the distance from a point to the nearest edge of a box."""
     px, py = pt
     x1, y1, x2, y2 = box
     cx = min(max(px, x1), x2)
@@ -47,11 +52,17 @@ def dist_to_box(pt, box):
 
 
 def area(box):
+    """Return the area of a box."""
     x1, y1, x2, y2 = box
     return max(0.0, x2 - x1) * max(0.0, y2 - y1)
 
 
 def owner_for(weapon, people):
+    """Return the index of the person who owns the weapon, or None.
+    
+    Order: centre in a padded person box, then any real overlap, then
+    proximity vs person height. Skip people much smaller than the weapon.
+    """
     wc = centre(weapon["box"])
     w_area = area(weapon["box"])
     best_i, best = None, None
@@ -75,6 +86,7 @@ def owner_for(weapon, people):
 
 
 def run(people, weapons):
+    """armed = person+weapon, loose = unmatched weapons, idle = unmatched people."""
     armed = []
     loose = []
     used = set()

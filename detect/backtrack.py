@@ -1,4 +1,4 @@
-"""One open interval per (id, camera). A gap > 3s closes it."""
+"""Camera timeline per person id. A gap > 3s on the same camera starts a new span."""
 
 from __future__ import annotations
 

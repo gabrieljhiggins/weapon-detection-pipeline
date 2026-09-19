@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record all cameras. One boxed event clip = suspect only, all views, in time order."""
+"""Live run: detect, associate, track, Re-ID, archive, then one suspect clip."""
 
 from __future__ import annotations
 
@@ -35,13 +35,14 @@ import record_all
 import reid
 import track
 
-ARM_WINDOW = 48
-ARM_NEED = 20
-IDLE_S = 20.0
-LOOSE_GAP = 2.0
+ARM_WINDOW = 48   # frames kept in the armed/not-armed vote
+ARM_NEED = 20     # armed hits required before an alert
+IDLE_S = 20.0     # seconds after last sighting before the clip is written
+LOOSE_GAP = 2.0   # min seconds between unassigned-weapon snapshots
 
 
 def grabber(name, rtsp, q, stop, live, recs):
+    """Grab frames from a camera and put them in a queue."""
     cap = None
     fails = 0
     while not stop.is_set():
@@ -78,6 +79,7 @@ def grabber(name, rtsp, q, stop, live, recs):
 
 
 def open_net(target, hef_path):
+    """Load one HEF onto the open VDevice."""
     hef = HEF(str(hef_path))
     params = ConfigureParams.create_from_hef(hef, interface=HailoStreamInterface.PCIe)
     ng = target.configure(hef, params)[0]
@@ -92,6 +94,7 @@ def open_net(target, hef_path):
 
 
 def cam_label(name):
+    """Return a human-readable camera label from a camera name."""
     s = str(name).strip()
     low = s.lower()
     if low.startswith("cam") and low[3:].isdigit():
@@ -102,12 +105,14 @@ def cam_label(name):
 
 
 def finish(tid, history, bank):
+    """Write the event clip and JSON log for a given track id."""
     path = bank.encode(tid)
     spans = history.dump("", tid)
     event.write_log(tid, spans or [], path)
 
 
 def main():
+    """Run the live weapon detection pipeline."""
     cams = common.load_cameras()
     print("Starting weapon detection pipeline...")
     recs = record_all.start(cams)

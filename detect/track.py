@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 def iou(a, b):
+    """Compute the intersection-over-union of two boxes."""
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
@@ -25,6 +26,7 @@ class CameraTracker:
         self.tracks = {}  # id -> {box, age, hits}
 
     def update(self, people: list[dict]) -> list[dict]:
+        """Greedy IoU match. New boxes get a new local id."""
         assigned = set()
         used_det = set()
         for tid, tr in list(self.tracks.items()):
@@ -59,10 +61,13 @@ class CameraTracker:
 
 
 class Trackers:
+    """Maintain a CameraTracker for each camera."""
+
     def __init__(self):
         self.by_cam = {}
 
     def update(self, cam: str, people: list[dict]) -> list[dict]:
+        """Update the tracker for a given camera and return the people with track_ids."""
         if cam not in self.by_cam:
             self.by_cam[cam] = CameraTracker(cam)
         return self.by_cam[cam].update(people)

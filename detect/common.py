@@ -1,4 +1,4 @@
-"""Shared camera / HEF / box helpers."""
+"""Paths, class names, Hailo NMS unwrap, and box drawing."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ WEAPON_NAMES = {"knife", "axe", "pistol", "assault_rifle", "shotgun"}
 
 
 def load_cameras() -> list[dict]:
+    """Load camera config from cameras.json, returning a list of enabled cameras."""
     cfg = json.loads(CAMERAS_JSON.read_text())
     cams = []
     for cam in cfg.get("cameras") or []:
@@ -33,6 +34,7 @@ def load_cameras() -> list[dict]:
 
 
 def letterbox(img, size=640):
+    """Resize and pad image to fit in a square of given size."""
     h, w = img.shape[:2]
     scale = min(size / h, size / w)
     nh, nw = int(round(h * scale)), int(round(w * scale))
@@ -45,6 +47,7 @@ def letterbox(img, size=640):
 
 
 def unwrap_nms(hailo_out):
+    """Unwrap Hailo NMS output to a list of boxes per class."""
     if isinstance(hailo_out, dict):
         hailo_out = next(iter(hailo_out.values()))
     if isinstance(hailo_out, (list, tuple)) and len(hailo_out) == 1:
@@ -53,6 +56,7 @@ def unwrap_nms(hailo_out):
 
 
 def iter_boxes(hailo_out):
+    """Iterate over boxes in Hailo NMS output"""
     classes = unwrap_nms(hailo_out)
     if classes is None:
         return
@@ -72,6 +76,7 @@ def iter_boxes(hailo_out):
 
 
 def box_xyxy(row, scale, left, top, fw, fh):
+    """Convert normalized box to pixel coordinates in original frame."""
     ymin, xmin, ymax, xmax = row[:4]
     x1 = int((xmin * 640 - left) / scale)
     y1 = int((ymin * 640 - top) / scale)
@@ -85,6 +90,7 @@ def box_xyxy(row, scale, left, top, fw, fh):
 
 
 def detections(hailo_out, scale, left, top, fw, fh):
+    """Extract person and weapon detections from Hailo NMS output."""
     people, weapons = [], []
     for cls_id, row, score in iter_boxes(hailo_out):
         name = CLASSES[cls_id] if 0 <= cls_id < len(CLASSES) else f"id{cls_id}"
@@ -97,6 +103,7 @@ def detections(hailo_out, scale, left, top, fw, fh):
 
 
 def draw(frame, people, weapons, cam=None):
+    """Green person, red armed person, red weapon."""
     vis = frame.copy()
     for p in people:
         x1, y1, x2, y2 = [int(v) for v in p["box"]]

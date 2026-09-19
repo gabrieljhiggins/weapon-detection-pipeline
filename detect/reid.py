@@ -9,6 +9,7 @@ import numpy as np
 
 
 def crop_256x128(frame, box):
+    """Person crop at the Re-ID HEF size: 128x256 RGB."""
     x1, y1, x2, y2 = box
     if x2 <= x1 or y2 <= y1:
         return None
@@ -20,12 +21,14 @@ def crop_256x128(frame, box):
 
 
 def l2norm(v):
+    """L2-normalize a vector."""
     v = np.asarray(v, dtype=np.float32).reshape(-1)
     n = float(np.linalg.norm(v)) + 1e-9
     return v / n
 
 
 def cosine(a, b):
+    """Cosine similarity between two vectors."""
     return float(np.dot(a, b))
 
 
@@ -40,9 +43,9 @@ class ReID:
     ):
         self.infer_fn = infer_fn
         self.in_name = in_name
-        self.match_thr = match_thr
-        self.suspect_thr = suspect_thr
-        self.hold_s = hold_s
+        self.match_thr = match_thr      # gallery match
+        self.suspect_thr = suspect_thr  # match against frozen attacker
+        self.hold_s = hold_s            # keep suspect id after last sighting
         self.next_id = 1
         self.gallery = {}
         self.attacker_id = None
@@ -51,6 +54,7 @@ class ReID:
         self.last_cam = None
 
     def embed(self, frame, box):
+        """512-d unit vector for one person box."""
         crop = crop_256x128(frame, box)
         if crop is None:
             return None
@@ -60,6 +64,7 @@ class ReID:
         return l2norm(raw)
 
     def assign(self, frame, people, cam=None):
+        """Assign a unique track_id to each person in the frame. Remap old ids to new ones."""
         remaps = []
         now = time.time()
         n = len(people)
@@ -130,6 +135,7 @@ class ReID:
         return people, remaps
 
     def mark_attacker(self, gid, emb=None):
+        """Mark a person id as the attacker. Freeze their embedding for future matching."""
         if gid is None:
             return
         self.attacker_id = gid
@@ -141,8 +147,10 @@ class ReID:
         self.last_t = time.time()
 
     def clear_attacker(self):
+        """Clear the attacker id and frozen embedding."""
         self.attacker_id = None
         self.frozen = None
 
     def is_attacker(self, gid):
+        """Return True if the given id is the attacker."""
         return self.attacker_id is not None and gid == self.attacker_id
