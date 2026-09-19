@@ -186,21 +186,7 @@ Stop with Ctrl+C.
 | `data/recordings/cam*/` | Full session, one MP4 per camera |
 | `data/events/event_*_id*.mp4` | Boxed reconstruction of the tracked suspect |
 | `data/events/event_*_id*.json` | Camera timeline for that ID |
-| `data/alerts/unassigned/` | Weapon with no linked person |
-
----
-
-## Repository layout
-
-```
-collect/     record, merge, extract frames, build YOLO split
-config/      cameras.json.example, boot recorder unit
-detect/      live Hailo pipeline
-models/      README only; .pt / .hef stay on disk or Drive
-data/        recordings, frames, events (gitignored)
-```
-
-Not in git: recordings, frames, Label Studio projects, `*.pt`, `*.hef`, `config/cameras.json`, Hailo runtime logs.
+| `data/alerts/unassigned/` | Weapons with no associated person |
 
 ---
 
